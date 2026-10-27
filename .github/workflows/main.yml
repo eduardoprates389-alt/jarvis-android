@@ -2,10 +2,10 @@
 name: Build JARVIS AI APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,9 +13,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
 
     steps:
       - name: Baixar codigo
@@ -27,27 +24,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Localizar ferramentas Android
-        run: |
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
-          ls -la "$ANDROID_HOME/cmdline-tools"
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Preparar Android SDK
+      - name: Verificar arquivos Gradle
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses < /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Dar permissao ao Gradle
-        run: chmod +x ./gradlew
+          echo "Arquivos na raiz:"
+          ls -la
+          echo "Arquivos Gradle encontrados:"
+          find . -maxdepth 4 \( -name gradlew -o -name settings.gradle -o -name settings.gradle.kts \)
 
       - name: Compilar APK
-        run: ./gradlew assembleDebug
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: '8.9'
+          arguments: assembleDebug
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: jarvis-ai-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: '**/build/outputs/apk/debug/*.apk'
           if-no-files-found: error
