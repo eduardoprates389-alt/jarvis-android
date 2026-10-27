@@ -2,10 +2,10 @@
 name: Build JARVIS AI APK
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,16 +22,21 @@ jobs:
           java-version: '17'
 
       - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Dar permissao ao Gradle
+        run: chmod +x ./gradlew
 
       - name: Compilar APK
-        uses: gradle/gradle-build-action@v3
-        with:
-          gradle-version: '8.9'
-          arguments: assembleDebug
+        run: ./gradlew assembleDebug
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
           name: jarvis-ai-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
