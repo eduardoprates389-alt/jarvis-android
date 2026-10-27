@@ -24,15 +24,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Verificar arquivos Gradle
+      - name: Localizar Android SDK
         run: |
-          echo "Arquivos na raiz:"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          find "$ANDROID_HOME" -name sdkmanager -type f 2>/dev/null | head -20
           ls -la
-          echo "Arquivos Gradle encontrados:"
-          find . -maxdepth 4 \( -name gradlew -o -name settings.gradle -o -name settings.gradle.kts \)
+
+      - name: Verificar Gradle
+        run: |
+          find . -maxdepth 5 \( -name gradlew -o -name settings.gradle -o -name settings.gradle.kts \)
 
       - name: Compilar APK
         uses: gradle/gradle-build-action@v3
