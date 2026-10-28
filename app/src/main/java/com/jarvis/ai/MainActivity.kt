@@ -1,245 +1,195 @@
 
 package com.jarvis.ai
 
-import android.Manifest
 import android.app.Activity
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.RecognizerIntent
+import android.content.Intent
 import android.view.Gravity
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity(), TextToSpeech.OnInitListener {
 
-    private lateinit var status: TextView
-    private var tts: TextToSpeech? = null
-    private var recognizer: SpeechRecognizer? = null
+    private lateinit var fala: TextToSpeech
+    private lateinit var resposta: TextView
+    private var pronto = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        tts = TextToSpeech(this, this)
+        fala = TextToSpeech(this, this)
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(30, 30, 30, 30)
-            setBackgroundColor(0xFF08101F.toInt())
+            setPadding(28, 35, 28, 25)
+            gravity = Gravity.CENTER_HORIZONTAL
+            setBackgroundColor(0xFF101820.toInt())
         }
 
-        val title = TextView(this).apply {
-            text = "J.A.R.V.I.S. 🤖"
-            textSize = 34f
+        val titulo = TextView(this).apply {
+            text = "J.A.R.V.I.S"
+            textSize = 32f
             gravity = Gravity.CENTER
-            setTextColor(0xFF00DCFF.toInt())
+            setTextColor(0xFF00D9FF.toInt())
         }
+        layout.addView(titulo)
 
-        status = TextView(this).apply {
-            text = "Sistema iniciado. Estou pronto!"
-            textSize = 18f
+        val subtitulo = TextView(this).apply {
+            text = "Assistente pessoal inteligente"
+            textSize = 16f
             gravity = Gravity.CENTER
             setTextColor(0xFFFFFFFF.toInt())
-            setPadding(0, 35, 0, 35)
         }
+        layout.addView(subtitulo)
 
-        val voiceButton = Button(this).apply {
-            text = "🎙 FALAR COM JARVIS"
-            setOnClickListener { listen() }
+        resposta = TextView(this).apply {
+            text = "Olá, senhor. JARVIS iniciado."
+            textSize = 18f
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(0, 30, 0, 25)
         }
+        layout.addView(resposta)
 
-        val settingsButton = Button(this).apply {
-            text = "ABRIR CONFIGURAÇÕES"
+        val entrada = EditText(this).apply {
+            hint = "Digite um comando..."
+            setTextColor(0xFFFFFFFF.toInt())
+            setHintTextColor(0xFFAAAAAA.toInt())
+        }
+        layout.addView(entrada)
+
+        val enviar = Button(this).apply {
+            text = "Enviar comando"
             setOnClickListener {
-                startActivity(
-                    Intent(android.provider.Settings.ACTION_SETTINGS)
-                )
+                processar(entrada.text.toString())
+                entrada.text.clear()
             }
         }
+        layout.addView(enviar)
 
-        layout.addView(title)
-        layout.addView(status)
-        layout.addView(voiceButton)
-        layout.addView(settingsButton)
+        val voz = Button(this).apply {
+            text = "🎙 Falar com JARVIS"
+            setOnClickListener { ouvir() }
+        }
+        layout.addView(voz)
 
-        setContentView(layout)
+        val abrir = Button(this).apply {
+            text = "Abrir YouTube"
+            setOnClickListener { abrirApp("com.google.android.youtube") }
+        }
+        layout.addView(abrir)
+
+        val rolagem = ScrollView(this)
+        rolagem.addView(layout)
+        setContentView(rolagem)
     }
 
-    override fun onInit(result: Int) {
-        if (result == TextToSpeech.SUCCESS) {
-            tts?.language = Locale("pt", "BR")
-            speak("Olá! JARVIS iniciado. Como posso ajudar?")
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            pronto = fala.setLanguage(Locale("pt", "BR")) !=
+                    TextToSpeech.LANG_MISSING_DATA &&
+                    fala.setLanguage(Locale("pt", "BR")) !=
+                    TextToSpeech.LANG_NOT_SUPPORTED
         }
     }
 
-    private fun speak(message: String) {
-        status.text = message
-        tts?.speak(
-            message,
-            TextToSpeech.QUEUE_FLUSH,
-            null,
-            "jarvis"
-        )
+    private fun dizer(texto: String) {
+        resposta.text = texto
+        if (pronto) {
+            fala.speak(texto, TextToSpeech.QUEUE_FLUSH, null, "jarvis")
+        }
     }
 
-    private fun listen() {
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(
-                arrayOf(Manifest.permission.RECORD_AUDIO), 100
-            )
-            return
-        }
-
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            speak("Reconhecimento de voz indisponível.")
-            return
-        }
-
-        recognizer?.destroy()
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this)
-
-        recognizer?.setRecognitionListener(
-            object : android.speech.RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {
-                    status.text = "Estou ouvindo..."
-                }
-
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(value: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-
-                override fun onEndOfSpeech() {
-                    status.text = "Processando comando..."
-                }
-
-                override fun onError(error: Int) {
-                    status.text = "Não entendi. Tente novamente."
-                }
-
-                override fun onResults(results: Bundle?) {
-                    val command = results
-                        ?.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION
-                        )?.firstOrNull()?.lowercase(Locale.ROOT)
-                        ?: ""
-
-                    handleCommand(command)
-                }
-
-                override fun onPartialResults(results: Bundle?) {}
-                override fun onEvent(type: Int, params: Bundle?) {}
-            }
-        )
-
-        val intent = Intent(
-            RecognizerIntent.ACTION_RECOGNIZE_SPEECH
-        ).apply {
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
-            putExtra(
-                RecognizerIntent.EXTRA_PROMPT,
-                "Fale com o JARVIS"
-            )
-        }
-
-        recognizer?.startListening(intent)
-    }
-
-    private fun handleCommand(command: String) {
+    private fun processar(comando: String) {
         when {
-            command.contains("youtube") ->
-                openApp("com.google.android.youtube", "YouTube")
+            comando.isBlank() ->
+                dizer("Diga um comando, senhor.")
 
-            command.contains("instagram") ->
-                openApp("com.instagram.android", "Instagram")
-
-            command.contains("whatsapp") ->
-                openApp("com.whatsapp", "WhatsApp")
-
-            command.contains("tiktok") ||
-            command.contains("tik tok") ->
-                openApp(
-                    "com.zhiliaoapp.musically", "TikTok"
-                )
-
-            command.contains("configurações") ||
-            command.contains("configuracoes") -> {
-                speak("Abrindo configurações.")
-                startActivity(
-                    Intent(android.provider.Settings.ACTION_SETTINGS)
-                )
+            comando.contains("youtube", true) -> {
+                dizer("Abrindo YouTube, senhor.")
+                abrirApp("com.google.android.youtube")
             }
 
-            command.contains("câmera") ||
-            command.contains("camera") -> {
-                speak("Abrindo a câmera.")
-                startActivity(
-                    Intent("android.media.action.IMAGE_CAPTURE")
-                )
+            comando.contains("instagram", true) -> {
+                dizer("Abrindo Instagram, senhor.")
+                abrirApp("com.instagram.android")
             }
 
-            command.contains("que horas") -> {
-                val time = SimpleDateFormat(
-                    "HH:mm", Locale("pt", "BR")
-                ).format(Date())
-                speak("Agora são $time.")
+            comando.contains("whatsapp", true) -> {
+                dizer("Abrindo WhatsApp, senhor.")
+                abrirApp("com.whatsapp")
             }
 
-            command.contains("oi") ||
-            command.contains("olá") ||
-            command.contains("ola") ->
-                speak("Olá! Estou aqui. Qual é o próximo comando?")
+            comando.contains("que horas", true) -> {
+                dizer("Agora são " +
+                    java.text.SimpleDateFormat(
+                        "HH:mm", Locale("pt", "BR")
+                    ).format(java.util.Date()))
+            }
+
+            comando.contains("seu nome", true) ->
+                dizer("Meu nome é JARVIS, seu assistente pessoal.")
+
+            comando.contains("olá", true) ||
+            comando.contains("oi", true) ->
+                dizer("Olá, senhor. Como posso ajudar?")
 
             else ->
-                speak("Ainda estou aprendendo esse comando.")
+                dizer("Ainda estou aprendendo esse comando, senhor.")
         }
     }
 
-    private fun openApp(packageName: String, name: String) {
-        val launchIntent =
-            packageManager.getLaunchIntentForPackage(packageName)
-
-        if (launchIntent != null) {
-            speak("Abrindo $name.")
-            startActivity(launchIntent)
-        } else {
-            speak("$name não foi encontrado no celular.")
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(
-            requestCode, permissions, grantResults
+    private fun ouvir() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        intent.putExtra(
+            RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
         )
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
 
-        if (requestCode == 100 &&
-            grantResults.isNotEmpty() &&
-            grantResults[0] == PackageManager.PERMISSION_GRANTED
-        ) {
-            listen()
+        try {
+            startActivityForResult(intent, 100)
+        } catch (e: Exception) {
+            dizer("O reconhecimento de voz não está disponível.")
+        }
+    }
+
+    @Deprecated("Compatibilidade com reconhecimento de voz")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == 100 && resultCode == RESULT_OK) {
+            val comandos = data?.getStringArrayListExtra(
+                RecognizerIntent.EXTRA_RESULTS
+            )
+            comandos?.firstOrNull()?.let { processar(it) }
+        }
+    }
+
+    private fun abrirApp(pacote: String) {
+        val intent = packageManager.getLaunchIntentForPackage(pacote)
+        if (intent != null) {
+            startActivity(intent)
+        } else {
+            dizer("Senhor, esse aplicativo não está instalado.")
         }
     }
 
     override fun onDestroy() {
-        recognizer?.destroy()
-        tts?.stop()
-        tts?.shutdown()
+        if (::fala.isInitialized) {
+            fala.stop()
+            fala.shutdown()
+        }
         super.onDestroy()
     }
 }
